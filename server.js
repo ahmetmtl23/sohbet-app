@@ -9,12 +9,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Hata yakalama middleware'i
+app.use((err, req, res, next) => {
+    console.error('Hata:', err.stack);
+    res.status(500).json({ error: 'Sunucu hatası', details: err.message });
+});
+
 // MongoDB bağlantısı
+console.log('MongoDB bağlantısı başlatılıyor...');
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://admin:admin230904@sohbet.vw1uv.mongodb.net/?retryWrites=true&w=majority&appName=sohbet';
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('MongoDB bağlantısı başarılı'))
-    .catch(err => console.error('MongoDB bağlantı hatası:', err));
+    .catch(err => {
+        console.error('MongoDB bağlantı hatası:', err);
+        process.exit(1); // Ciddi bir hata durumunda uygulamayı sonlandır
+    });
 
 // Kullanıcı modeli
 const userSchema = new mongoose.Schema({
@@ -28,12 +38,18 @@ const User = mongoose.model('User', userSchema);
 
 // API rotaları
 app.post('/api/register', async (req, res) => {
+    console.log('Kayıt isteği alındı:', req.body);
     try {
         const { username, email, password } = req.body;
+
+        if (!username || !email || !password) {
+            return res.status(400).json({ error: 'Tüm alanlar zorunludur' });
+        }
 
         // Kullanıcı adı veya email zaten var mı kontrol et
         const existingUser = await User.findOne({ $or: [{ username }, { email }] });
         if (existingUser) {
+            console.log('Var olan kullanıcı:', existingUser);
             return res.status(400).json({ error: 'Bu kullanıcı adı veya email zaten kullanılıyor' });
         }
 
@@ -48,29 +64,38 @@ app.post('/api/register', async (req, res) => {
         });
 
         await user.save();
+        console.log('Yeni kullanıcı kaydedildi:', username);
         res.status(201).json({ message: 'Kullanıcı başarıyla oluşturuldu' });
     } catch (error) {
         console.error('Kayıt hatası:', error);
-        res.status(500).json({ error: 'Sunucu hatası' });
+        res.status(500).json({ error: 'Sunucu hatası', details: error.message });
     }
 });
 
 app.post('/api/login', async (req, res) => {
+    console.log('Giriş isteği alındı:', req.body);
     try {
         const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email ve şifre zorunludur' });
+        }
 
         // Kullanıcıyı bul
         const user = await User.findOne({ email });
         if (!user) {
+            console.log('Kullanıcı bulunamadı:', email);
             return res.status(400).json({ error: 'Kullanıcı bulunamadı' });
         }
 
         // Şifreyi kontrol et
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
+            console.log('Geçersiz şifre:', email);
             return res.status(400).json({ error: 'Geçersiz şifre' });
         }
 
+        console.log('Başarılı giriş:', user.username);
         res.json({ 
             message: 'Giriş başarılı',
             user: {
@@ -81,7 +106,7 @@ app.post('/api/login', async (req, res) => {
         });
     } catch (error) {
         console.error('Giriş hatası:', error);
-        res.status(500).json({ error: 'Sunucu hatası' });
+        res.status(500).json({ error: 'Sunucu hatası', details: error.message });
     }
 });
 
