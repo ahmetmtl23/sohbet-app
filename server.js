@@ -10,7 +10,8 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB bağlantısı
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://your-mongodb-uri';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://admin:admin230904@sohbet.vw1uv.mongodb.net/?retryWrites=true&w=majority&appName=sohbet';
+
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('MongoDB bağlantısı başarılı'))
     .catch(err => console.error('MongoDB bağlantı hatası:', err));
